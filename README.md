@@ -5,6 +5,7 @@ Página estática para GitHub Pages que convierte un enlace de YouTube en una "r
 1. Pegas un URL de un video musical.
 2. Se reproduce automáticamente.
 3. Se genera una cola de canciones recomendadas y se reproducen una tras otra.
+4. En “Próximas canciones” se muestran títulos y puedes hacer clic para cambiar de canción.
 
 ## Publicar en GitHub Pages
 

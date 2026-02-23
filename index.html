@@ -114,11 +114,16 @@
       }
 
       .queue-item {
+        width: 100%;
+        text-align: left;
         padding: 10px;
         border: 1px solid rgba(255,255,255,0.1);
         border-radius: 10px;
         margin-bottom: 8px;
         font-size: 0.92rem;
+        background: rgba(10, 14, 28, 0.55);
+        color: var(--text);
+        cursor: pointer;
       }
 
       .queue-item.active {
@@ -163,6 +168,7 @@
       let ytPlayer;
       let currentIndex = 0;
       let queue = [];
+      const videoMetaMap = new Map();
       let playlistRefreshTimer;
 
       const VIDEO_ID_REGEX = /^[\w-]{11}$/;
@@ -213,6 +219,31 @@
         return null;
       }
 
+      async function fetchVideoTitle(videoId) {
+        if (!VIDEO_ID_REGEX.test(videoId)) return null;
+        if (videoMetaMap.has(videoId)) return videoMetaMap.get(videoId);
+
+        try {
+          const endpoint = `https://noembed.com/embed?url=https://www.youtube.com/watch?v=${videoId}`;
+          const response = await fetch(endpoint);
+          if (!response.ok) return null;
+          const data = await response.json();
+          const title = typeof data.title === 'string' ? data.title.trim() : '';
+          if (!title) return null;
+          videoMetaMap.set(videoId, title);
+          return title;
+        } catch {
+          return null;
+        }
+      }
+
+      async function hydrateQueueTitles() {
+        const missing = queue.filter((id) => id && !videoMetaMap.has(id));
+        if (!missing.length) return;
+        await Promise.all(missing.map((id) => fetchVideoTitle(id)));
+        renderQueue();
+      }
+
       function refreshPlaylistFromPlayer() {
         if (!ytPlayer || typeof ytPlayer.getPlaylist !== 'function') return;
         const playlist = ytPlayer.getPlaylist() || [];
@@ -222,14 +253,28 @@
         queue = playlist;
         currentIndex = Math.max(playlistIndex, 0);
         renderQueue();
+        hydrateQueueTitles();
       }
 
       function renderQueue() {
         queueListEl.innerHTML = '';
         queue.forEach((videoId, index) => {
-          const item = document.createElement('div');
+          const item = document.createElement('button');
+          item.type = 'button';
           item.className = `queue-item ${index === currentIndex ? 'active' : ''}`;
-          item.textContent = `${index + 1}. https://youtu.be/${videoId}`;
+
+          const title = videoMetaMap.get(videoId) || `Canción ${index + 1}`;
+          item.textContent = `${index + 1}. ${title}`;
+          item.title = `Reproducir: ${title}`;
+
+          item.addEventListener('click', () => {
+            if (!ytPlayer || !queue[index]) return;
+            ytPlayer.playVideoAt(index);
+            currentIndex = index;
+            renderQueue();
+            setStatus(`Reproduciendo: ${title}`);
+          });
+
           queueListEl.appendChild(item);
         });
       }
@@ -280,6 +325,7 @@
           queue = [firstId];
           currentIndex = 0;
           renderQueue();
+          hydrateQueueTitles();
 
           ytPlayer.loadPlaylist({
             list: `RD${firstId}`,
