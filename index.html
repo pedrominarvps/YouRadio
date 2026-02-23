@@ -124,6 +124,17 @@
         cursor: pointer;
       }
 
+      .floating-options {
+        margin-top: 8px;
+        display: none;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+
+      .floating-options.show {
+        display: flex;
+      }
+
       .queue h2 {
         margin: 0 0 12px;
         font-size: 1rem;
@@ -179,6 +190,10 @@
             <button id="download-audio" class="secondary-btn" type="button">Descargar Musica</button>
             <button id="floating-window" class="secondary-btn" type="button">Ventana flotante</button>
           </div>
+          <div id="floating-options" class="floating-options">
+            <button id="floating-option-1" class="secondary-btn" type="button">Opción 1: Mini Video</button>
+            <button id="floating-option-2" class="secondary-btn" type="button">Opción 2: Mini Control</button>
+          </div>
         </div>
         <aside class="panel queue">
           <h2>Próximas canciones</h2>
@@ -204,8 +219,12 @@
       const downloadVideoBtn = document.getElementById('download-video');
       const downloadAudioBtn = document.getElementById('download-audio');
       const floatingWindowBtn = document.getElementById('floating-window');
+      const floatingOptionsEl = document.getElementById('floating-options');
+      const floatingOption1Btn = document.getElementById('floating-option-1');
+      const floatingOption2Btn = document.getElementById('floating-option-2');
 
       let floatingWindowRef = null;
+      let floatingControlRef = null;
 
       function setStatus(message, isError = false) {
         statusEl.textContent = message;
@@ -327,7 +346,7 @@
         window.open(targetUrl, '_blank', 'noopener,noreferrer');
       }
 
-      function openFloatingWindow() {
+      function openFloatingVideo() {
         const videoId = getCurrentVideoId();
         if (!videoId) {
           setStatus('Primero inicia la radio para usar ventana flotante.', true);
@@ -341,11 +360,98 @@
           floatingWindowRef.location.href = popupUrl;
           floatingWindowRef.focus();
         } else {
-          floatingWindowRef = window.open(popupUrl, 'youradio-floating', features);
+          floatingWindowRef = window.open(popupUrl, 'youradio-floating-video', features);
         }
 
-        setStatus('Ventana flotante abierta con la canción actual.');
+        setStatus('Ventana flotante (opción 1) abierta con la canción actual.');
       }
+
+      function openFloatingControl() {
+        const videoId = getCurrentVideoId();
+        if (!videoId) {
+          setStatus('Primero inicia la radio para usar ventana flotante.', true);
+          return;
+        }
+
+        const features = 'popup=yes,width=520,height=210,menubar=no,toolbar=no,location=no,status=no';
+        if (!floatingControlRef || floatingControlRef.closed) {
+          floatingControlRef = window.open('', 'youradio-floating-control', features);
+        }
+
+        const title = videoMetaMap.get(videoId) || 'Canción actual';
+        const thumbnail = `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`;
+
+        floatingControlRef.document.open();
+        floatingControlRef.document.write(`<!doctype html><html lang="es"><head><meta charset="utf-8" /><title>Mini Control</title><style>
+          body{margin:0;background:#dfe3ee;font-family:system-ui,sans-serif}
+          .card{margin:8px;padding:12px;border-radius:10px;background:#f5f7ff;display:grid;grid-template-columns:96px 1fr;gap:12px;align-items:center}
+          img{width:96px;height:64px;border-radius:8px;object-fit:cover}
+          .title{font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+          .controls{display:flex;gap:8px;align-items:center;margin-top:8px}
+          button{border:0;border-radius:999px;background:#6573ff;color:white;width:34px;height:34px;cursor:pointer}
+          input{width:100%}
+        </style></head><body>
+          <div class="card">
+            <img src="${thumbnail}" alt="miniatura" />
+            <div>
+              <div style="font-size:12px;opacity:.7">YouRadio • Opción 2</div>
+              <div class="title" id="song-title">${title}</div>
+              <div class="controls">
+                <button id="prev">⏮</button>
+                <button id="play">⏯</button>
+                <button id="next">⏭</button>
+                <input id="vol" type="range" min="0" max="100" value="70" />
+              </div>
+            </div>
+          </div>
+          <script>
+            const op=window.opener;
+            document.getElementById('prev').onclick=()=>op?.YouRadioControls?.prev();
+            document.getElementById('play').onclick=()=>op?.YouRadioControls?.togglePlayPause();
+            document.getElementById('next').onclick=()=>op?.YouRadioControls?.next();
+            document.getElementById('vol').oninput=(e)=>op?.YouRadioControls?.setVolume(Number(e.target.value));
+            setInterval(()=>{
+              const state=op?.YouRadioControls?.getState?.();
+              if(!state) return;
+              document.getElementById('song-title').textContent=state.title;
+              const vol=document.getElementById('vol');
+              if (Math.abs(Number(vol.value)-state.volume)>1) vol.value=state.volume;
+            },1000);
+          <\/script>
+        </body></html>`);
+        floatingControlRef.document.close();
+        floatingControlRef.focus();
+        setStatus('Ventana flotante (opción 2) abierta.');
+      }
+
+      function toggleFloatingOptions() {
+        floatingOptionsEl.classList.toggle('show');
+      }
+
+      window.YouRadioControls = {
+        prev() {
+          if (ytPlayer && typeof ytPlayer.previousVideo === 'function') ytPlayer.previousVideo();
+        },
+        next() {
+          if (ytPlayer && typeof ytPlayer.nextVideo === 'function') ytPlayer.nextVideo();
+        },
+        togglePlayPause() {
+          if (!ytPlayer || typeof ytPlayer.getPlayerState !== 'function') return;
+          const state = ytPlayer.getPlayerState();
+          if (state === YT.PlayerState.PLAYING) ytPlayer.pauseVideo();
+          else ytPlayer.playVideo();
+        },
+        setVolume(value) {
+          if (ytPlayer && typeof ytPlayer.setVolume === 'function') ytPlayer.setVolume(value);
+        },
+        getState() {
+          const id = getCurrentVideoId();
+          return {
+            title: videoMetaMap.get(id) || `Canción ${currentIndex + 1}`,
+            volume: ytPlayer && typeof ytPlayer.getVolume === 'function' ? ytPlayer.getVolume() : 70
+          };
+        }
+      };
 
       function onPlayerStateChange(event) {
         if (event.data === YT.PlayerState.PLAYING || event.data === YT.PlayerState.CUED) {
@@ -418,10 +524,14 @@
       });
       downloadVideoBtn.addEventListener('click', () => openDownload('video'));
       downloadAudioBtn.addEventListener('click', () => openDownload('audio'));
-      floatingWindowBtn.addEventListener('click', openFloatingWindow);
+      floatingWindowBtn.addEventListener('click', toggleFloatingOptions);
+      floatingOption1Btn.addEventListener('click', openFloatingVideo);
+      floatingOption2Btn.addEventListener('click', openFloatingControl);
 
       window.addEventListener('beforeunload', () => {
         if (playlistRefreshTimer) clearInterval(playlistRefreshTimer);
+        if (floatingWindowRef && !floatingWindowRef.closed) floatingWindowRef.close();
+        if (floatingControlRef && !floatingControlRef.closed) floatingControlRef.close();
       });
 
     </script>
