@@ -176,7 +176,7 @@
           </div>
           <div class="player-actions">
             <button id="download-video" class="secondary-btn" type="button">Descargar video</button>
-            <button id="download-audio" class="secondary-btn" type="button">Descargar musical</button>
+            <button id="download-audio" class="secondary-btn" type="button">Descargar Musica</button>
             <button id="floating-window" class="secondary-btn" type="button">Ventana flotante</button>
           </div>
         </div>
@@ -321,7 +321,7 @@
         }
 
         const targetUrl = kind === 'audio'
-          ? `https://loader.to/es90/youtube-mp3-converter.html#${videoId}`
+          ? `https://v1.y2mate.nu/es/?url=${encodeURIComponent(`https://www.youtube.com/watch?v=${videoId}`)}`
           : `https://app.ytdown.to/es7/?url=${encodeURIComponent(`https://www.youtube.com/watch?v=${videoId}`)}`;
 
         window.open(targetUrl, '_blank', 'noopener,noreferrer');
