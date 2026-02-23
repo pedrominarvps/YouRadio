@@ -6,6 +6,7 @@ Página estática para GitHub Pages que convierte un enlace de YouTube en una "r
 2. Se reproduce automáticamente.
 3. Se genera una cola de canciones recomendadas y se reproducen una tras otra.
 4. En “Próximas canciones” se muestran títulos y puedes hacer clic para cambiar de canción.
+5. Debajo del reproductor tienes acciones rápidas: Descargar video, Descargar musical y Ventana flotante.
 
 ## Publicar en GitHub Pages
 

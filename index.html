@@ -107,6 +107,23 @@
         overflow: auto;
       }
 
+      .player-actions {
+        margin-top: 12px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+      }
+
+      .secondary-btn {
+        padding: 10px 14px;
+        border-radius: 10px;
+        border: 1px solid rgba(255,255,255,0.18);
+        background: rgba(10, 14, 28, 0.72);
+        color: var(--text);
+        font-weight: 600;
+        cursor: pointer;
+      }
+
       .queue h2 {
         margin: 0 0 12px;
         font-size: 1rem;
@@ -153,8 +170,15 @@
       </section>
 
       <section class="layout">
-        <div class="player-shell">
-          <div id="player"></div>
+        <div>
+          <div class="player-shell">
+            <div id="player"></div>
+          </div>
+          <div class="player-actions">
+            <button id="download-video" class="secondary-btn" type="button">Descargar video</button>
+            <button id="download-audio" class="secondary-btn" type="button">Descargar musical</button>
+            <button id="floating-window" class="secondary-btn" type="button">Ventana flotante</button>
+          </div>
         </div>
         <aside class="panel queue">
           <h2>Próximas canciones</h2>
@@ -177,6 +201,11 @@
       const queueListEl = document.getElementById('queue-list');
       const form = document.getElementById('radio-form');
       const input = document.getElementById('youtube-url');
+      const downloadVideoBtn = document.getElementById('download-video');
+      const downloadAudioBtn = document.getElementById('download-audio');
+      const floatingWindowBtn = document.getElementById('floating-window');
+
+      let floatingWindowRef = null;
 
       function setStatus(message, isError = false) {
         statusEl.textContent = message;
@@ -279,6 +308,45 @@
         });
       }
 
+      function getCurrentVideoId() {
+        if (queue[currentIndex]) return queue[currentIndex];
+        return extractVideoId(input.value);
+      }
+
+      function openDownload(kind) {
+        const videoId = getCurrentVideoId();
+        if (!videoId) {
+          setStatus('Primero inicia la radio con un enlace válido.', true);
+          return;
+        }
+
+        const targetUrl = kind === 'audio'
+          ? `https://loader.to/es90/youtube-mp3-converter.html#${videoId}`
+          : `https://loader.to/es90/youtube-video-downloader.html#${videoId}`;
+
+        window.open(targetUrl, '_blank', 'noopener,noreferrer');
+      }
+
+      function openFloatingWindow() {
+        const videoId = getCurrentVideoId();
+        if (!videoId) {
+          setStatus('Primero inicia la radio para usar ventana flotante.', true);
+          return;
+        }
+
+        const popupUrl = `https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0`;
+        const features = 'popup=yes,width=460,height=820,menubar=no,toolbar=no,location=no,status=no';
+
+        if (floatingWindowRef && !floatingWindowRef.closed) {
+          floatingWindowRef.location.href = popupUrl;
+          floatingWindowRef.focus();
+        } else {
+          floatingWindowRef = window.open(popupUrl, 'youradio-floating', features);
+        }
+
+        setStatus('Ventana flotante abierta con la canción actual.');
+      }
+
       function onPlayerStateChange(event) {
         if (event.data === YT.PlayerState.PLAYING || event.data === YT.PlayerState.CUED) {
           refreshPlaylistFromPlayer();
@@ -348,6 +416,10 @@
           setStatus(error.message || 'No se pudo iniciar la radio automática.', true);
         }
       });
+      downloadVideoBtn.addEventListener('click', () => openDownload('video'));
+      downloadAudioBtn.addEventListener('click', () => openDownload('audio'));
+      floatingWindowBtn.addEventListener('click', openFloatingWindow);
+
       window.addEventListener('beforeunload', () => {
         if (playlistRefreshTimer) clearInterval(playlistRefreshTimer);
       });
