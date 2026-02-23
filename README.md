@@ -1,6 +1,6 @@
 # YouRadio
 
-Página estática para GitHub Pages que convierte un enlace de YouTube en una "radio" automática:
+Página estática para GitHub Pages que convierte un enlace de YouTube en una "radio" automática, con fondo dinámico del video en reproducción:
 
 1. Pegas un URL de un video musical.
 2. Se reproduce automáticamente.
