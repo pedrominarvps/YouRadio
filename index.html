@@ -1,0 +1,311 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>YouRadio</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #0b1020;
+        --card: #141b32;
+        --accent: #6ee7ff;
+        --accent2: #7c9dff;
+        --text: #e5edff;
+        --muted: #9eb2e0;
+        --ok: #6df6b0;
+      }
+
+      * { box-sizing: border-box; }
+
+      body {
+        margin: 0;
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+        background: radial-gradient(circle at top, #1d2750 0%, var(--bg) 55%);
+        color: var(--text);
+        min-height: 100vh;
+      }
+
+      .container {
+        width: min(980px, 92vw);
+        margin: 48px auto 72px;
+      }
+
+      h1 {
+        font-size: clamp(1.8rem, 4vw, 2.8rem);
+        margin: 0 0 8px;
+      }
+
+      p.subtitle {
+        margin: 0 0 28px;
+        color: var(--muted);
+      }
+
+      .panel {
+        background: linear-gradient(170deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02));
+        border: 1px solid rgba(255,255,255,0.1);
+        border-radius: 16px;
+        backdrop-filter: blur(6px);
+        padding: 20px;
+      }
+
+      form {
+        display: grid;
+        gap: 12px;
+      }
+
+      input[type="url"] {
+        width: 100%;
+        padding: 14px;
+        border-radius: 12px;
+        border: 1px solid rgba(255,255,255,0.16);
+        background: rgba(6, 10, 20, 0.8);
+        color: var(--text);
+        font-size: 1rem;
+      }
+
+      button {
+        width: fit-content;
+        padding: 12px 18px;
+        font-size: 0.98rem;
+        border-radius: 12px;
+        border: none;
+        font-weight: 700;
+        background: linear-gradient(120deg, var(--accent), var(--accent2));
+        color: #0a1224;
+        cursor: pointer;
+      }
+
+      .status {
+        margin-top: 14px;
+        min-height: 24px;
+        color: var(--ok);
+      }
+
+      .layout {
+        margin-top: 24px;
+        display: grid;
+        grid-template-columns: 2fr 1fr;
+        gap: 16px;
+      }
+
+      .player-shell {
+        border-radius: 16px;
+        overflow: hidden;
+        border: 1px solid rgba(255,255,255,0.14);
+        aspect-ratio: 16 / 9;
+        background: #030508;
+      }
+
+      #player {
+        width: 100%;
+        height: 100%;
+      }
+
+      .queue {
+        max-height: 60vh;
+        overflow: auto;
+      }
+
+      .queue h2 {
+        margin: 0 0 12px;
+        font-size: 1rem;
+        color: var(--muted);
+      }
+
+      .queue-item {
+        padding: 10px;
+        border: 1px solid rgba(255,255,255,0.1);
+        border-radius: 10px;
+        margin-bottom: 8px;
+        font-size: 0.92rem;
+      }
+
+      .queue-item.active {
+        border-color: var(--accent);
+        background: rgba(110, 231, 255, 0.12);
+      }
+
+      @media (max-width: 860px) {
+        .layout {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="container">
+      <h1>🎵 YouRadio para GitHub Pages</h1>
+      <p class="subtitle">Pega un enlace de YouTube y la app reproducirá el video inicial + una cola automática de recomendaciones similares.</p>
+
+      <section class="panel">
+        <form id="radio-form">
+          <label for="youtube-url">Enlace del video musical</label>
+          <input id="youtube-url" type="url" placeholder="https://www.youtube.com/watch?v=..." required />
+          <button type="submit">Iniciar radio inteligente</button>
+        </form>
+        <div id="status" class="status" aria-live="polite"></div>
+      </section>
+
+      <section class="layout">
+        <div class="player-shell">
+          <div id="player"></div>
+        </div>
+        <aside class="panel queue">
+          <h2>Próximas canciones</h2>
+          <div id="queue-list"></div>
+        </aside>
+      </section>
+    </main>
+
+    <script src="https://www.youtube.com/iframe_api"></script>
+    <script>
+      let ytPlayer;
+      let currentIndex = 0;
+      let queue = [];
+      let playlistRefreshTimer;
+
+      const VIDEO_ID_REGEX = /^[\w-]{11}$/;
+
+      const statusEl = document.getElementById('status');
+      const queueListEl = document.getElementById('queue-list');
+      const form = document.getElementById('radio-form');
+      const input = document.getElementById('youtube-url');
+
+      function setStatus(message, isError = false) {
+        statusEl.textContent = message;
+        statusEl.style.color = isError ? '#ff8f8f' : 'var(--ok)';
+      }
+
+      function normalizeVideoId(rawId) {
+        if (!rawId) return null;
+        const id = rawId.trim().slice(0, 11);
+        return VIDEO_ID_REGEX.test(id) ? id : null;
+      }
+
+      function extractVideoId(url) {
+        try {
+          const parsed = new URL(url.trim());
+          const hostname = parsed.hostname.replace('www.', '');
+
+          if (hostname === 'youtu.be') {
+            return normalizeVideoId(parsed.pathname.split('/').filter(Boolean)[0]);
+          }
+
+          if (hostname === 'youtube.com' || hostname === 'm.youtube.com') {
+            const directId = normalizeVideoId(parsed.searchParams.get('v'));
+            if (directId) return directId;
+
+            const parts = parsed.pathname.split('/').filter(Boolean);
+            const shortsIndex = parts.indexOf('shorts');
+            if (shortsIndex !== -1 && parts[shortsIndex + 1]) {
+              return normalizeVideoId(parts[shortsIndex + 1]);
+            }
+
+            const embedIndex = parts.indexOf('embed');
+            if (embedIndex !== -1 && parts[embedIndex + 1]) {
+              return normalizeVideoId(parts[embedIndex + 1]);
+            }
+          }
+        } catch {
+          return null;
+        }
+        return null;
+      }
+
+      function refreshPlaylistFromPlayer() {
+        if (!ytPlayer || typeof ytPlayer.getPlaylist !== 'function') return;
+        const playlist = ytPlayer.getPlaylist() || [];
+        const playlistIndex = ytPlayer.getPlaylistIndex?.() ?? 0;
+        if (!playlist.length) return;
+
+        queue = playlist;
+        currentIndex = Math.max(playlistIndex, 0);
+        renderQueue();
+      }
+
+      function renderQueue() {
+        queueListEl.innerHTML = '';
+        queue.forEach((videoId, index) => {
+          const item = document.createElement('div');
+          item.className = `queue-item ${index === currentIndex ? 'active' : ''}`;
+          item.textContent = `${index + 1}. https://youtu.be/${videoId}`;
+          queueListEl.appendChild(item);
+        });
+      }
+
+      function onPlayerStateChange(event) {
+        if (event.data === YT.PlayerState.PLAYING || event.data === YT.PlayerState.CUED) {
+          refreshPlaylistFromPlayer();
+        }
+      }
+
+      window.onYouTubeIframeAPIReady = function () {
+        ytPlayer = new YT.Player('player', {
+          height: '100%',
+          width: '100%',
+          videoId: '',
+          playerVars: {
+            autoplay: 1,
+            controls: 1,
+            rel: 0,
+            modestbranding: 1
+          },
+          events: {
+            onStateChange: onPlayerStateChange,
+            onReady: () => setStatus('Reproductor listo. Pega una URL para iniciar la radio.')
+          }
+        });
+      };
+
+      form.addEventListener('submit', (event) => {
+        event.preventDefault();
+        const firstId = extractVideoId(input.value);
+
+        if (!firstId) {
+          setStatus('URL inválida. Usa un enlace de YouTube válido.', true);
+          return;
+        }
+
+        if (!ytPlayer) {
+          setStatus('El reproductor aún no está listo. Intenta en 2 segundos.', true);
+          return;
+        }
+
+        setStatus('Preparando radio inteligente desde recomendaciones de YouTube...');
+
+        try {
+          if (playlistRefreshTimer) clearInterval(playlistRefreshTimer);
+
+          queue = [firstId];
+          currentIndex = 0;
+          renderQueue();
+
+          ytPlayer.loadPlaylist({
+            list: `RD${firstId}`,
+            index: 0,
+            startSeconds: 0,
+            suggestedQuality: 'large'
+          });
+
+          playlistRefreshTimer = setInterval(refreshPlaylistFromPlayer, 1500);
+
+          setTimeout(() => {
+            refreshPlaylistFromPlayer();
+            if (queue.length > 1) {
+              setStatus(`Radio iniciada: ${queue.length} canciones cargadas automáticamente.`);
+            } else {
+              setStatus('Reproduciendo canción base. YouTube puede tardar en exponer recomendaciones.');
+            }
+          }, 1200);
+        } catch (error) {
+          setStatus(error.message || 'No se pudo iniciar la radio automática.', true);
+        }
+      });
+      window.addEventListener('beforeunload', () => {
+        if (playlistRefreshTimer) clearInterval(playlistRefreshTimer);
+      });
+
+    </script>
+  </body>
+</html>
