@@ -1,4 +1,4 @@
-# YouRadio para GitHub Pages
+# YouRadio
 
 Página estática para GitHub Pages que convierte un enlace de YouTube en una "radio" automática:
 
