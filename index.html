@@ -322,7 +322,7 @@
 
         const targetUrl = kind === 'audio'
           ? `https://loader.to/es90/youtube-mp3-converter.html#${videoId}`
-          : `https://loader.to/es90/youtube-video-downloader.html#${videoId}`;
+          : `https://app.ytdown.to/es7/?url=${encodeURIComponent(`https://www.youtube.com/watch?v=${videoId}`)}`;
 
         window.open(targetUrl, '_blank', 'noopener,noreferrer');
       }
