@@ -3,7 +3,6 @@
 Página estática para GitHub Pages con 2 vistas:
 
 1. **Inicio (`index.html`)** estilo portada para pegar el enlace.
-2. **Reproductor (`player.html`)** estilo cinematográfico Astral, con fondo dinámico, carrusel sincronizado, barra de progreso interactiva y controles avanzados (shuffle, seek ±10s, mute, anterior/siguiente).
 
 ## Flujo
 
