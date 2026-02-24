@@ -3,6 +3,7 @@
 Página estática para GitHub Pages con 2 vistas:
 
 1. **Inicio (`index.html`)** estilo portada para pegar el enlace.
+ 
 
 ## Flujo
 
