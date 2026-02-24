@@ -57,6 +57,27 @@
 
     .carousel-container::-webkit-scrollbar { display: none; }
 
+    .carousel-nav-btn {
+      width: 42px;
+      height: 42px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,.2);
+      background: rgba(12,12,12,.52);
+      backdrop-filter: blur(8px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      cursor: pointer;
+      transition: all .2s;
+    }
+
+    .carousel-nav-btn:hover {
+      color: #fbbf24;
+      border-color: rgba(251,191,36,.65);
+      transform: translateY(-1px);
+    }
+
     .song-card {
       transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
       cursor: pointer;
@@ -172,7 +193,17 @@
     </section>
 
     <section class="w-full">
-      <h3 class="text-[10px] uppercase tracking-[0.3em] text-gray-300 font-bold mb-4 ml-2">Lista de Reproducción</h3>
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="text-[10px] uppercase tracking-[0.3em] text-gray-300 font-bold ml-2">Lista de Reproducción</h3>
+        <div class="flex items-center gap-2">
+          <button id="carousel-left" class="carousel-nav-btn" type="button" title="Mover a la izquierda">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+          </button>
+          <button id="carousel-right" class="carousel-nav-btn" type="button" title="Mover a la derecha">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+          </button>
+        </div>
+      </div>
       <div id="carousel" class="flex gap-4 overflow-x-auto pb-4 carousel-container"></div>
     </section>
   </main>
@@ -396,6 +427,18 @@
     document.getElementById('download-video').addEventListener('click', () => openDownload('video'));
     document.getElementById('download-audio').addEventListener('click', () => openDownload('audio'));
     document.getElementById('floating-window').addEventListener('click', openFloatingWindow);
+
+    const carouselEl = document.getElementById('carousel');
+    const carouselLeftBtn = document.getElementById('carousel-left');
+    const carouselRightBtn = document.getElementById('carousel-right');
+
+    carouselLeftBtn.addEventListener('click', () => {
+      carouselEl.scrollBy({ left: -360, behavior: 'smooth' });
+    });
+
+    carouselRightBtn.addEventListener('click', () => {
+      carouselEl.scrollBy({ left: 360, behavior: 'smooth' });
+    });
 
     document.getElementById('progress-container').addEventListener('click', function (e) {
       const rect = this.getBoundingClientRect();
