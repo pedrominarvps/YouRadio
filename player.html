@@ -142,7 +142,7 @@
         <span id="genre-tag" class="text-[10px] uppercase tracking-widest text-gray-300 ml-2 font-bold">CARGANDO GÉNERO</span>
       </div>
 
-      <h1 id="current-title" class="text-4xl md:text-7xl font-extrabold mb-2 leading-[0.95] drop-shadow-lg">Cargando...</h1>
+      <h1 id="current-title" class="text-3xl md:text-5xl font-extrabold mb-2 leading-tight tracking-tight text-white drop-shadow-[0_0_22px_rgba(251,191,36,0.32)]">Cargando...</h1>
       <p id="current-artist" class="text-lg md:text-xl text-gray-200 mb-6 font-light">Sincronizando con YouTube...</p>
 
       <div class="flex flex-col gap-6 glass-panel rounded-2xl p-4 md:p-5 w-full max-w-3xl">
@@ -185,9 +185,6 @@
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072M17.95 6.05a9 9 0 010 11.9M9 9L5 12l4 3V9zM12 5v14"/></svg>
           </button>
 
-          <button id="download-video" class="px-3 py-2 rounded-lg glass-panel text-sm hover:text-yellow-300 transition">Descargar video</button>
-          <button id="download-audio" class="px-3 py-2 rounded-lg glass-panel text-sm hover:text-yellow-300 transition">Descargar Musica</button>
-          <button id="floating-window" class="px-3 py-2 rounded-lg glass-panel text-sm hover:text-yellow-300 transition">Ventana flotante</button>
         </div>
       </div>
     </section>
@@ -206,6 +203,12 @@
       </div>
       <div id="carousel" class="flex gap-4 overflow-x-auto pb-4 carousel-container"></div>
     </section>
+    <div class="w-full flex flex-wrap gap-3 justify-end mt-1">
+      <button id="download-video" class="px-3 py-2 rounded-lg glass-panel text-sm hover:text-yellow-300 transition">Descargar video</button>
+      <button id="download-audio" class="px-3 py-2 rounded-lg glass-panel text-sm hover:text-yellow-300 transition">Descargar Musica</button>
+      <button id="floating-window" class="px-3 py-2 rounded-lg glass-panel text-sm hover:text-yellow-300 transition">Ventana flotante</button>
+    </div>
+
   </main>
 
   <script src="https://www.youtube.com/iframe_api"></script>
@@ -231,6 +234,17 @@
       if (!rawId) return null;
       const id = rawId.trim().slice(0, 11);
       return VIDEO_ID_REGEX.test(id) ? id : null;
+    }
+
+    function inferGenre(title = "") {
+      const t = title.toLowerCase();
+      if (/rock|metal|guitar/.test(t)) return "Rock";
+      if (/rap|hip hop|hip-hop|trap/.test(t)) return "Hip-Hop";
+      if (/edm|dance|remix|house|techno/.test(t)) return "EDM / Dance";
+      if (/k-pop|aespa|blackpink|lisa|bts/.test(t)) return "K-Pop";
+      if (/acoustic|piano|ballad/.test(t)) return "Ballad";
+      if (/reggaeton|latin/.test(t)) return "Latin";
+      return "Pop";
     }
 
     function updateUI() {
@@ -353,9 +367,9 @@
           const data = res.ok ? await res.json() : {};
           const title = (data.title || `Track ${id}`).trim();
           const artist = (data.author_name || 'YouTube').trim();
-          return { id, title, artist, genre: 'AutoMix', thumb: `https://img.youtube.com/vi/${id}/mqdefault.jpg` };
+          return { id, title, artist, genre: inferGenre(title), thumb: `https://img.youtube.com/vi/${id}/mqdefault.jpg` };
         } catch {
-          return { id, title: `Track ${id}`, artist: 'YouTube', genre: 'AutoMix', thumb: `https://img.youtube.com/vi/${id}/mqdefault.jpg` };
+          const fallbackTitle = `Track ${id}`; return { id, title: fallbackTitle, artist: 'YouTube', genre: inferGenre(fallbackTitle), thumb: `https://img.youtube.com/vi/${id}/mqdefault.jpg` };
         }
       }));
 
