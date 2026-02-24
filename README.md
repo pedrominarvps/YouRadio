@@ -12,6 +12,7 @@ Página estática para GitHub Pages con 2 vistas:
 3. Se reproduce automáticamente y se genera la cola recomendada.
 4. En “Próximas canciones” se muestran títulos y puedes hacer clic para cambiar de canción.
 5. Debajo del reproductor tienes acciones rápidas: Descargar video (YTDown), Descargar Musica y Ventana flotante.
+6. El carrusel se expande automáticamente con más de 200 canciones (modo continuo).
 
 ## Publicar en GitHub Pages
 

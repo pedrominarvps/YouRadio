@@ -229,11 +229,54 @@
     let isMuted = false;
     let timerInterval;
     let floatingWindowRef;
+    const MIN_PLAYLIST_TARGET = 220;
+    const EXTEND_CHUNK_SIZE = 40;
 
     function normalizeVideoId(rawId) {
       if (!rawId) return null;
       const id = rawId.trim().slice(0, 11);
       return VIDEO_ID_REGEX.test(id) ? id : null;
+    }
+
+
+    function cloneTrackForLoop(track, serial) {
+      return {
+        id: track.id,
+        title: `${track.title} · Mix ${serial}`,
+        artist: track.artist,
+        genre: track.genre,
+        thumb: track.thumb
+      };
+    }
+
+    function autoExtendPlaylist(minTarget = MIN_PLAYLIST_TARGET) {
+      if (!playlist.length) return;
+
+      const seedPool = playlist.slice(0, Math.min(60, playlist.length));
+      let serial = playlist.length + 1;
+
+      while (playlist.length < minTarget) {
+        for (let i = 0; i < EXTEND_CHUNK_SIZE; i += 1) {
+          const picked = seedPool[Math.floor(Math.random() * seedPool.length)] || seedPool[0];
+          if (!picked) break;
+
+          const prev = playlist[playlist.length - 1];
+          if (prev && prev.id === picked.id && seedPool.length > 1) continue;
+
+          playlist.push(cloneTrackForLoop(picked, serial));
+          serial += 1;
+
+          if (playlist.length >= minTarget) break;
+        }
+      }
+    }
+
+    function maybeExtendNearEnd() {
+      if (playlist.length - currentIndex <= 12) {
+        autoExtendPlaylist(playlist.length + EXTEND_CHUNK_SIZE);
+        renderCarousel();
+        updateUI();
+      }
     }
 
     function inferGenre(title = "") {
@@ -285,6 +328,7 @@
       currentIndex = index;
       player.loadVideoById(playlist[currentIndex].id);
       updateUI();
+      maybeExtendNearEnd();
     }
 
     function togglePlay() {
@@ -375,6 +419,7 @@
 
       playlist = enriched;
       currentIndex = Math.max(0, player.getPlaylistIndex?.() ?? 0);
+      autoExtendPlaylist();
       renderCarousel();
       updateUI();
     }
@@ -396,6 +441,7 @@
     }
 
     function onPlayerReady(event) {
+      autoExtendPlaylist();
       renderCarousel();
       updateUI();
       startProgressTimer();
@@ -416,6 +462,7 @@
         if (Number.isInteger(idx) && idx >= 0 && idx < playlist.length) {
           currentIndex = idx;
           updateUI();
+          maybeExtendNearEnd();
         }
       }
       updatePlayPauseIcon();
