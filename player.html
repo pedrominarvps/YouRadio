@@ -427,6 +427,9 @@
     function playTrack(index) {
       currentIndex = index;
       player.loadVideoById(playlist[currentIndex].id);
+      setTimeout(() => {
+        if (player && typeof player.playVideo === 'function') player.playVideo();
+      }, 120);
       updateUI();
       maybeExtendNearEnd();
     }
@@ -629,7 +632,13 @@
     }
 
     function onPlayerStateChange(event) {
-      if (event.data === YT.PlayerState.ENDED) nextTrack();
+      if (event.data === YT.PlayerState.ENDED) {
+        nextTrack();
+        setTimeout(() => {
+          const state = player?.getPlayerState?.();
+          if (state !== YT.PlayerState.PLAYING) player?.playVideo?.();
+        }, 260);
+      }
       if (event.data === YT.PlayerState.PLAYING || event.data === YT.PlayerState.CUED) {
         const idx = player.getPlaylistIndex?.();
         if (Number.isInteger(idx) && idx >= 0 && idx < playlist.length) {
