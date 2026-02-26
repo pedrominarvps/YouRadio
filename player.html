@@ -479,10 +479,18 @@
       return `${m}:${s < 10 ? '0' : ''}${s}`;
     }
 
-    async function hydrateFromAutoMix() {
+    async function hydrateFromAutoMix(retry = 0) {
       if (!player || typeof player.getPlaylist !== 'function') return;
       const ids = player.getPlaylist() || [];
-      if (!ids.length) return;
+
+      if (!ids.length) {
+        if (retry < 8) {
+          setTimeout(() => hydrateFromAutoMix(retry + 1), 500);
+        } else {
+          isHydratingAutoMix = false;
+        }
+        return;
+      }
 
       isHydratingAutoMix = true;
       try {
@@ -541,7 +549,7 @@
 
       isHydratingAutoMix = true;
       player.loadPlaylist({ list: `RD${seedId}`, index: 0, startSeconds: 0, suggestedQuality: 'large' });
-      setTimeout(() => { hydrateFromAutoMix(); }, 700);
+      setTimeout(() => { hydrateFromAutoMix(0); }, 700);
     }
 
     function onPlayerReady(event) {
