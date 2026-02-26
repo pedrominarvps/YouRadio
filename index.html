@@ -263,6 +263,35 @@
       .hero-title { line-height: 1.02; }
       .inspiration-head h3 { font-size: 1.3rem; }
     }
+
+
+    @media (max-width: 480px) {
+      .search-card form .relative {
+        display: flex;
+        flex-direction: column;
+        gap: .6rem;
+      }
+
+      .input-glass {
+        padding-right: 1rem;
+      }
+
+      .btn-glow {
+        position: static;
+        transform: none;
+        width: 100%;
+        justify-content: center;
+      }
+
+      .btn-glow:hover {
+        transform: translateY(-1px);
+      }
+
+      .status-row {
+        flex-wrap: wrap;
+        row-gap: .35rem;
+      }
+    }
   </style>
 </head>
 <body>

@@ -13,7 +13,8 @@
       color: white;
       font-family: 'Inter', sans-serif;
       margin: 0;
-      overflow: hidden;
+      overflow-x: hidden;
+      overflow-y: auto;
     }
 
     .video-background {
@@ -82,6 +83,7 @@
       transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
       cursor: pointer;
       min-width: 190px;
+      max-width: 230px;
       opacity: 0.5;
       transform: scale(0.95);
     }
@@ -120,6 +122,63 @@
       color: #fbbf24;
       text-shadow: 0 0 10px rgba(251, 191, 36, 0.5);
     }
+
+
+    .page-shell {
+      min-height: 100svh;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 1.25rem;
+    }
+
+    .controls-row {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+
+    .actions-row {
+      width: 100%;
+      display: flex;
+      flex-wrap: wrap;
+      gap: .7rem;
+      justify-content: flex-end;
+    }
+
+    @media (max-width: 1024px) {
+      .song-card { min-width: 172px; }
+    }
+
+    @media (max-width: 768px) {
+      .carousel-nav-btn { width: 36px; height: 36px; }
+      .song-card { min-width: 156px; max-width: 180px; }
+      .controls-row { justify-content: center; }
+      .actions-row { justify-content: center; }
+    }
+
+    @media (max-width: 640px) {
+      main.page-shell {
+        padding: 1rem 0.85rem 1.15rem;
+      }
+
+      #current-title {
+        font-size: 1.75rem;
+        line-height: 1.1;
+      }
+
+      #current-artist {
+        font-size: .95rem;
+        margin-bottom: 1rem;
+      }
+
+      .glass-panel {
+        border-radius: 1rem;
+      }
+
+      .song-card { min-width: 142px; max-width: 165px; }
+    }
   </style>
 </head>
 <body>
@@ -128,7 +187,7 @@
   </div>
   <div class="video-overlay"></div>
 
-  <main class="relative h-screen flex flex-col justify-between p-6 md:p-12 z-10 gap-6">
+  <main class="relative page-shell p-5 md:p-9 lg:p-12 z-10">
     <nav class="flex justify-between items-center">
       <div class="text-xl font-bold tracking-tighter flex items-center gap-2">
         <span class="text-yellow-400 animate-pulse">●</span> YouRadio Pro
@@ -136,7 +195,7 @@
       <a href="index.html" class="text-xs uppercase tracking-widest text-gray-300 hover:text-white transition">← Inicio</a>
     </nav>
 
-    <section class="max-w-4xl">
+    <section class="w-full max-w-4xl">
       <div class="flex items-center gap-2 text-yellow-500 mb-2">
         <div class="flex text-[10px]">★★★★★</div>
         <span id="genre-tag" class="text-[10px] uppercase tracking-widest text-gray-300 ml-2 font-bold">CARGANDO GÉNERO</span>
@@ -156,7 +215,7 @@
           </div>
         </div>
 
-        <div class="flex items-center gap-4 flex-wrap">
+        <div class="controls-row">
           <button id="shuffle-btn" class="control-btn text-gray-300" title="Modo Aleatorio">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" /></svg>
           </button>
@@ -203,7 +262,7 @@
       </div>
       <div id="carousel" class="flex gap-4 overflow-x-auto pb-4 carousel-container"></div>
     </section>
-    <div class="w-full flex flex-wrap gap-3 justify-end mt-1">
+    <div class="actions-row mt-1">
       <button id="download-video" class="px-3 py-2 rounded-lg glass-panel text-sm hover:text-yellow-300 transition">Descargar video</button>
       <button id="download-audio" class="px-3 py-2 rounded-lg glass-panel text-sm hover:text-yellow-300 transition">Descargar Musica</button>
       <button id="floating-window" class="px-3 py-2 rounded-lg glass-panel text-sm hover:text-yellow-300 transition">Ventana flotante</button>
