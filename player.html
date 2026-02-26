@@ -288,6 +288,7 @@
     let isMuted = false;
     let timerInterval;
     let floatingWindowRef;
+    let isHydratingAutoMix = false;
     const MIN_PLAYLIST_TARGET = 220;
     const EXTEND_CHUNK_SIZE = 40;
 
@@ -331,6 +332,8 @@
     }
 
     function maybeExtendNearEnd() {
+      if (isHydratingAutoMix) return;
+      if (playlist.length <= 1 && /cargando/i.test(playlist[0]?.title || '')) return;
       if (playlist.length - currentIndex <= 12) {
         autoExtendPlaylist(playlist.length + EXTEND_CHUNK_SIZE);
         renderCarousel();
@@ -348,6 +351,23 @@
       if (/reggaeton|latin/.test(t)) return "Latin";
       return "Pop";
     }
+
+    async function fetchTrackMeta(id, timeoutMs = 2800) {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), timeoutMs);
+      try {
+        const res = await fetch(`https://noembed.com/embed?url=https://www.youtube.com/watch?v=${id}`, { signal: controller.signal });
+        const data = res.ok ? await res.json() : {};
+        const title = (data.title || `YouTube ${id}`).trim();
+        const artist = (data.author_name || 'YouTube').trim();
+        return { title, artist, genre: inferGenre(title) };
+      } catch {
+        return { title: `YouTube ${id}`, artist: 'YouTube', genre: 'AutoMix' };
+      } finally {
+        clearTimeout(timeout);
+      }
+    }
+
 
     function updateUI() {
       const track = playlist[currentIndex];
@@ -464,23 +484,21 @@
       const ids = player.getPlaylist() || [];
       if (!ids.length) return;
 
-      const enriched = await Promise.all(ids.slice(0, 20).map(async (id) => {
-        try {
-          const res = await fetch(`https://noembed.com/embed?url=https://www.youtube.com/watch?v=${id}`);
-          const data = res.ok ? await res.json() : {};
-          const title = (data.title || `Track ${id}`).trim();
-          const artist = (data.author_name || 'YouTube').trim();
-          return { id, title, artist, genre: inferGenre(title), thumb: `https://img.youtube.com/vi/${id}/mqdefault.jpg` };
-        } catch {
-          const fallbackTitle = `Track ${id}`; return { id, title: fallbackTitle, artist: 'YouTube', genre: inferGenre(fallbackTitle), thumb: `https://img.youtube.com/vi/${id}/mqdefault.jpg` };
-        }
-      }));
+      isHydratingAutoMix = true;
+      try {
+        const enriched = await Promise.all(ids.slice(0, 20).map(async (id) => {
+          const meta = await fetchTrackMeta(id);
+          return { id, title: meta.title, artist: meta.artist, genre: meta.genre, thumb: `https://img.youtube.com/vi/${id}/mqdefault.jpg` };
+        }));
 
-      playlist = enriched;
-      currentIndex = Math.max(0, player.getPlaylistIndex?.() ?? 0);
-      autoExtendPlaylist();
-      renderCarousel();
-      updateUI();
+        playlist = enriched;
+        currentIndex = Math.max(0, player.getPlaylistIndex?.() ?? 0);
+        autoExtendPlaylist();
+        renderCarousel();
+        updateUI();
+      } finally {
+        isHydratingAutoMix = false;
+      }
     }
 
     function openDownload(kind) {
@@ -499,7 +517,7 @@
       else floatingWindowRef = window.open(popupUrl, 'youradio-floating', features);
     }
 
-    function startFromSeed(seedId, event) {
+    async function startFromSeed(seedId, event) {
       if (!seedId) {
         renderCarousel();
         updateUI();
@@ -507,11 +525,12 @@
         return;
       }
 
+      const meta = await fetchTrackMeta(seedId, 2400);
       const seedTrack = {
         id: seedId,
-        title: `Cargando ${seedId}...`,
-        artist: 'YouTube',
-        genre: 'AutoMix',
+        title: meta.title,
+        artist: meta.artist,
+        genre: meta.genre,
         thumb: `https://img.youtube.com/vi/${seedId}/mqdefault.jpg`
       };
 
@@ -519,16 +538,23 @@
       currentIndex = 0;
       renderCarousel();
       updateUI();
+
+      isHydratingAutoMix = true;
       player.loadPlaylist({ list: `RD${seedId}`, index: 0, startSeconds: 0, suggestedQuality: 'large' });
-      setTimeout(hydrateFromAutoMix, 1400);
+      setTimeout(() => { hydrateFromAutoMix(); }, 700);
     }
 
     function onPlayerReady(event) {
-      autoExtendPlaylist();
       startProgressTimer();
 
       const queryId = normalizeVideoId(new URLSearchParams(window.location.search).get('v'));
-      startFromSeed(queryId, event);
+      if (queryId) startFromSeed(queryId, event);
+      else {
+        autoExtendPlaylist();
+        renderCarousel();
+        updateUI();
+        event.target.playVideo();
+      }
     }
 
     function onPlayerStateChange(event) {
