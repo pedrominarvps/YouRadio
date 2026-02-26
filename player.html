@@ -440,19 +440,36 @@
       else floatingWindowRef = window.open(popupUrl, 'youradio-floating', features);
     }
 
-    function onPlayerReady(event) {
-      autoExtendPlaylist();
+    function startFromSeed(seedId, event) {
+      if (!seedId) {
+        renderCarousel();
+        updateUI();
+        if (event?.target) event.target.playVideo();
+        return;
+      }
+
+      const seedTrack = {
+        id: seedId,
+        title: `Cargando ${seedId}...`,
+        artist: 'YouTube',
+        genre: 'AutoMix',
+        thumb: `https://img.youtube.com/vi/${seedId}/mqdefault.jpg`
+      };
+
+      playlist = [seedTrack];
+      currentIndex = 0;
       renderCarousel();
       updateUI();
+      player.loadPlaylist({ list: `RD${seedId}`, index: 0, startSeconds: 0, suggestedQuality: 'large' });
+      setTimeout(hydrateFromAutoMix, 1400);
+    }
+
+    function onPlayerReady(event) {
+      autoExtendPlaylist();
       startProgressTimer();
 
       const queryId = normalizeVideoId(new URLSearchParams(window.location.search).get('v'));
-      if (queryId) {
-        player.loadPlaylist({ list: `RD${queryId}`, index: 0, startSeconds: 0, suggestedQuality: 'large' });
-        setTimeout(hydrateFromAutoMix, 1400);
-      } else {
-        event.target.playVideo();
-      }
+      startFromSeed(queryId, event);
     }
 
     function onPlayerStateChange(event) {
@@ -505,6 +522,10 @@
       const rect = this.getBoundingClientRect();
       const pos = (e.clientX - rect.left) / rect.width;
       player.seekTo(pos * player.getDuration(), true);
+    });
+
+    window.addEventListener('pageshow', (event) => {
+      if (event.persisted) window.location.reload();
     });
 
     window.addEventListener('beforeunload', () => {

@@ -122,6 +122,10 @@
         return null;
       }
 
+      window.addEventListener('pageshow', (event) => {
+        if (event.persisted) window.location.reload();
+      });
+
       document.getElementById('start-form').addEventListener('submit', (event) => {
         event.preventDefault();
         const url = document.getElementById('youtube-url').value;
@@ -132,7 +136,7 @@
           return;
         }
 
-        window.location.href = `player.html?v=${videoId}`;
+        window.location.href = `player.html?v=${videoId}&session=${Date.now()}`;
       });
     </script>
   </body>
