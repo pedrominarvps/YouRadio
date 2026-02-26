@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>YouRadio - Futurista Sunset Amber</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #050505;
+      --amber: #fbbf24;
+      --amber-soft: rgba(251, 191, 36, 0.16);
+      --card-glass: rgba(255, 255, 255, 0.03);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      background: var(--bg);
+      color: #fff;
+      overflow-x: hidden;
+      min-height: 100vh;
+    }
+
+    .bg-gradient-animate {
+      position: fixed;
+      inset: 0;
+      z-index: -2;
+      background:
+        radial-gradient(circle at 9% 22%, rgba(251, 146, 60, 0.4) 0%, transparent 34%),
+        radial-gradient(circle at 90% 84%, rgba(250, 204, 21, 0.34) 0%, transparent 36%),
+        radial-gradient(circle at 50% 48%, rgba(31, 18, 8, 0.88) 0%, rgba(5, 5, 5, 0.98) 60%);
+      animation: sunsetMove 15s ease-in-out infinite alternate;
+      filter: saturate(105%);
+    }
+
+    .bg-vignette {
+      position: fixed;
+      inset: 0;
+      z-index: -1;
+      background: radial-gradient(circle at center, transparent 18%, rgba(0, 0, 0, 0.72) 100%);
+      pointer-events: none;
+    }
+
+    @keyframes sunsetMove {
+      from { transform: scale(1) translate3d(0, 0, 0); }
+      to { transform: scale(1.08) translate3d(-1%, 1%, 0); }
+    }
+
+    .hero-pill {
+      display: inline-flex;
+      align-items: center;
+      border: 1px solid rgba(251, 191, 36, 0.3);
+      background: rgba(251, 191, 36, 0.08);
+      color: #fcd34d;
+      font-weight: 800;
+      font-size: .69rem;
+      text-transform: uppercase;
+      letter-spacing: .18em;
+      padding: .45rem .9rem;
+      border-radius: 999px;
+    }
+
+    .hero-title {
+      font-size: clamp(2.5rem, 7.3vw, 5.9rem);
+      font-weight: 800;
+      letter-spacing: -0.04em;
+      line-height: .96;
+      text-wrap: balance;
+      text-shadow: 0 0 24px rgba(255, 255, 255, 0.08);
+      margin-top: 1.4rem;
+      margin-bottom: .85rem;
+    }
+
+    .hero-title .accent {
+      color: var(--amber);
+      text-shadow: 0 0 26px rgba(251, 191, 36, 0.2);
+    }
+
+    .hero-subtitle {
+      color: #bdbdbd;
+      max-width: 760px;
+      margin: 0 auto;
+      font-size: clamp(.98rem, 2vw, 1.42rem);
+      line-height: 1.35;
+    }
+
+    .search-card {
+      margin-top: 2.2rem;
+      background: linear-gradient(120deg, rgba(255, 255, 255, 0.03), rgba(251, 191, 36, 0.04));
+      border: 1px solid var(--amber-soft);
+      border-radius: 1.6rem;
+      backdrop-filter: blur(25px);
+      -webkit-backdrop-filter: blur(25px);
+      box-shadow: 0 30px 60px -26px rgba(0, 0, 0, 0.85);
+      padding: 1.55rem;
+    }
+
+    .input-glass {
+      width: 100%;
+      background: rgba(8, 8, 8, 0.56);
+      border: 1px solid rgba(251, 191, 36, 0.3);
+      border-radius: 0.95rem;
+      color: #f7f7f7;
+      padding: 1rem 9.2rem 1rem 1.15rem;
+      font-size: 1rem;
+      transition: all 300ms ease;
+    }
+
+    .input-glass::placeholder { color: #838383; }
+
+    .input-glass:focus {
+      outline: none;
+      border-color: var(--amber);
+      box-shadow: 0 0 0 2px rgba(251, 191, 36, 0.16), 0 0 24px rgba(251, 191, 36, 0.18);
+    }
+
+    .btn-glow {
+      position: absolute;
+      top: 50%;
+      right: 0.4rem;
+      transform: translateY(-50%);
+      border-radius: 0.72rem;
+      padding: .82rem 1.36rem;
+      border: 1px solid rgba(251, 191, 36, 0.4);
+      background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+      color: #18120a;
+      font-weight: 800;
+      font-size: .94rem;
+      display: inline-flex;
+      align-items: center;
+      gap: .38rem;
+      transition: all 300ms ease;
+      box-shadow: 0 10px 24px rgba(251, 191, 36, 0.3);
+    }
+
+    .btn-glow:hover {
+      transform: translateY(calc(-50% - 1px));
+      box-shadow: 0 18px 32px rgba(251, 191, 36, 0.42);
+    }
+
+    .status-row {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: .7rem;
+      margin-top: .8rem;
+      color: #9b9b9b;
+      font-size: .67rem;
+    }
+
+    .status-dot {
+      width: 5px;
+      height: 5px;
+      border-radius: 999px;
+      background: #f59e0b;
+      box-shadow: 0 0 10px rgba(245, 158, 11, 0.5);
+    }
+
+    .nav-link {
+      color: #8f8f8f;
+      font-size: .72rem;
+      font-weight: 700;
+      letter-spacing: .015em;
+      text-decoration: none;
+      transition: color 300ms ease;
+    }
+
+    .nav-link:hover { color: #fff; }
+
+    .inspiration-wrap {
+      margin-top: 2.1rem;
+    }
+
+    .inspiration-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: .9rem;
+    }
+
+    .inspiration-head h3 {
+      margin: 0;
+      font-size: 1.65rem;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+    }
+
+    .inspiration-link {
+      color: var(--amber);
+      text-decoration: none;
+      font-size: .8rem;
+      font-weight: 700;
+      transition: opacity 300ms ease;
+    }
+
+    .inspiration-link:hover { opacity: .82; }
+
+    .inspiration-carousel {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: .9rem;
+    }
+
+    .inspire-card {
+      border-radius: .95rem;
+      border: 1px solid rgba(251, 191, 36, 0.22);
+      background: var(--card-glass);
+      backdrop-filter: blur(25px);
+      -webkit-backdrop-filter: blur(25px);
+      padding: .56rem;
+      cursor: pointer;
+      text-align: left;
+      color: white;
+      transition: transform 300ms ease, border-color 300ms ease, box-shadow 300ms ease;
+    }
+
+    .inspire-card:hover {
+      transform: translateY(-3px);
+      border-color: rgba(251, 191, 36, 0.48);
+      box-shadow: 0 14px 26px rgba(0, 0, 0, 0.4);
+    }
+
+    .inspire-thumb {
+      width: 100%;
+      aspect-ratio: 16 / 9;
+      object-fit: cover;
+      border-radius: .58rem;
+      border: 1px solid rgba(255,255,255,0.1);
+      margin-bottom: .55rem;
+    }
+
+    .inspire-title {
+      margin: 0;
+      font-size: .83rem;
+      font-weight: 800;
+      letter-spacing: .03em;
+      text-transform: uppercase;
+      line-height: 1.2;
+      min-height: 2em;
+    }
+
+    .inspire-meta {
+      margin: .2rem 0 0;
+      color: #969696;
+      font-size: .68rem;
+      font-weight: 600;
+    }
+
+    @media (max-width: 1024px) {
+      .inspiration-carousel { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .hero-title { font-size: clamp(2.15rem, 8vw, 4.35rem); }
+      .search-card { margin-top: 1.8rem; }
+    }
+
+    @media (max-width: 640px) {
+      .inspiration-carousel { grid-template-columns: 1fr; }
+      .search-card { padding: 1rem; border-radius: 1.1rem; }
+      .input-glass { padding-right: 7.8rem; font-size: .92rem; }
+      .btn-glow { padding: .64rem .95rem; font-size: .84rem; }
+      .hero-title { line-height: 1.02; }
+      .inspiration-head h3 { font-size: 1.3rem; }
+    }
+
+
+    @media (max-width: 480px) {
+      .search-card form .relative {
+        display: flex;
+        flex-direction: column;
+        gap: .6rem;
+      }
+
+      .input-glass {
+        padding-right: 1rem;
+      }
+
+      .btn-glow {
+        position: static;
+        transform: none;
+        width: 100%;
+        justify-content: center;
+      }
+
+      .btn-glow:hover {
+        transform: translateY(-1px);
+      }
+
+      .status-row {
+        flex-wrap: wrap;
+        row-gap: .35rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="bg-gradient-animate" aria-hidden="true"></div>
+  <div class="bg-vignette" aria-hidden="true"></div>
+
+  <div class="min-h-screen w-full px-5 md:px-8 pb-10">
+    <nav class="max-w-6xl mx-auto pt-6 md:pt-8 flex items-center justify-between">
+      <div class="text-xl font-extrabold tracking-tight flex items-center gap-2.5">
+        <div class="w-6 h-6 rounded-md bg-amber-400 text-black flex items-center justify-center">
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M4.9 19.1C1 15.2 1 8.8 4.9 4.9"/><path d="M7.8 16.2c-2.3-2.3-2.3-6.1 0-8.5"/><circle cx="12" cy="12" r="2"/><path d="M16.2 7.8c2.3 2.3 2.3 6.1 0 8.5"/><path d="M19.1 4.9C23 8.8 23 15.2 19.1 19.1"/></svg>
+        </div>
+        <span class="text-lg md:text-2xl">You<span class="text-amber-400">Radio</span></span>
+      </div>
+
+      <div class="flex items-center gap-5 md:gap-7">
+        <a class="nav-link" href="#">Descubrir</a>
+        <a class="nav-link" href="#">Populares</a>
+      </div>
+    </nav>
+
+    <main class="max-w-6xl mx-auto pt-10 md:pt-14">
+      <section class="text-center max-w-4xl mx-auto">
+        <span class="hero-pill">Siguiente generación</span>
+        <h1 class="hero-title">Tu música,<br><span class="accent">sin límites.</span></h1>
+        <p class="hero-subtitle">Transforma cualquier enlace de video en una experiencia auditiva pura. Simple, rápido y envolvente.</p>
+
+        <section class="search-card max-w-3xl mx-auto" aria-label="Buscador principal">
+          <form id="start-form">
+            <label for="youtube-url" class="block text-left text-xs font-semibold text-gray-400 mb-3">Pega tu enlace de YouTube</label>
+            <div class="relative">
+              <input
+                id="youtube-url"
+                type="url"
+                placeholder="https://www.youtube.com/watch?v=..."
+                required
+                class="input-glass"
+              />
+              <button id="tune-button" type="submit" class="btn-glow">
+                <span>Sintonizar</span>
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+              </button>
+            </div>
+          </form>
+
+          <div class="status-row" aria-label="estado del servicio">
+            <span class="status-dot"></span>
+            <span>Reproductor listo</span>
+            <span class="text-neutral-700">•</span>
+            <span>Sin anuncios intrusivos</span>
+          </div>
+        </section>
+      </section>
+
+      <section class="inspiration-wrap" aria-label="inspiración global">
+        <div class="inspiration-head">
+          <h3>Inspiración para hoy</h3>
+          <a class="inspiration-link" href="https://www.youtube.com/feed/trending?bp=4gINGgt5dG1hX2NoYXJ0cw%3D%3D" target="_blank" rel="noopener noreferrer">Ver todo</a>
+        </div>
+        <div id="inspiration-carousel" class="inspiration-carousel" aria-live="polite"></div>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    const VIDEO_ID_REGEX = /^[\w-]{11}$/;
+
+    // Normaliza y valida IDs de YouTube
+    function normalizeVideoId(rawId) {
+      if (!rawId) return null;
+      const id = rawId.trim().slice(0, 11);
+      return VIDEO_ID_REGEX.test(id) ? id : null;
+    }
+
+    // Mantiene la lógica de extracción robusta (watch, youtu.be, shorts, embed)
+    function extractVideoId(url) {
+      try {
+        const parsed = new URL(url.trim());
+        const hostname = parsed.hostname.replace('www.', '');
+
+        if (hostname === 'youtu.be') {
+          return normalizeVideoId(parsed.pathname.split('/').filter(Boolean)[0]);
+        }
+
+        if (hostname === 'youtube.com' || hostname === 'm.youtube.com') {
+          const directId = normalizeVideoId(parsed.searchParams.get('v'));
+          if (directId) return directId;
+
+          const parts = parsed.pathname.split('/').filter(Boolean);
+          const shortsIndex = parts.indexOf('shorts');
+          if (shortsIndex !== -1 && parts[shortsIndex + 1]) {
+            return normalizeVideoId(parts[shortsIndex + 1]);
+          }
+
+          const embedIndex = parts.indexOf('embed');
+          if (embedIndex !== -1 && parts[embedIndex + 1]) {
+            return normalizeVideoId(parts[embedIndex + 1]);
+          }
+        }
+      } catch {
+        return null;
+      }
+      return null;
+    }
+
+    // Evita restaurar estado viejo desde bfcache
+    window.addEventListener('pageshow', (event) => {
+      if (event.persisted) window.location.reload();
+    });
+
+    const inspirationEl = document.getElementById('inspiration-carousel');
+
+    function goToPlayer(videoId) {
+      window.location.href = `player.html?v=${videoId}&session=${Date.now()}`;
+    }
+
+    function formatListeners(index) {
+      const fake = [2.4, 1.8, 3.1, 0.95, 2.7, 1.3][index % 6];
+      return `${fake}k escuchando ahora`;
+    }
+
+    function renderInspiration(items) {
+      inspirationEl.innerHTML = '';
+      items.forEach((item, index) => {
+        const card = document.createElement('button');
+        card.type = 'button';
+        card.className = 'inspire-card';
+        card.innerHTML = `
+          <img class="inspire-thumb" src="${item.thumb}" alt="${item.title}" loading="lazy" />
+          <h4 class="inspire-title">${item.title}</h4>
+          <p class="inspire-meta">${formatListeners(index)}</p>
+        `;
+        card.addEventListener('click', () => goToPlayer(item.id));
+        inspirationEl.appendChild(card);
+      });
+    }
+
+    function fallbackInspirationItems(ids) {
+      return ids.slice(0, 4).map((id) => ({
+        id,
+        title: 'TOP GLOBAL',
+        thumb: `https://img.youtube.com/vi/${id}/mqdefault.jpg`
+      }));
+    }
+
+    async function loadTopGlobalInspiration() {
+      const fallbackIds = ['kJQP7kiw5Fk', 'JGwWNGJdvx8', 'fRh_vgS2dFE', '09R8_2nJtjg', '0KSOMA3QBU0', '3AtDnEC4zak'];
+
+      if (!inspirationEl) return;
+      renderInspiration(fallbackInspirationItems(fallbackIds));
+
+      const trendingController = new AbortController();
+      const trendingTimeout = setTimeout(() => trendingController.abort(), 4500);
+
+      try {
+        const res = await fetch('https://r.jina.ai/http://www.youtube.com/feed/trending?bp=4gINGgt5dG1hX2NoYXJ0cw%3D%3D', {
+          signal: trendingController.signal
+        });
+        clearTimeout(trendingTimeout);
+        const text = await res.text();
+        const ids = [];
+        const re = /watch\?v=([\w-]{11})/g;
+        let m;
+        while ((m = re.exec(text)) !== null && ids.length < 8) {
+          if (!ids.includes(m[1])) ids.push(m[1]);
+        }
+
+        const sourceIds = ids.length ? ids : fallbackIds;
+        const top = await Promise.all(sourceIds.slice(0, 4).map(async (id) => {
+          try {
+            const infoRes = await fetch(`https://noembed.com/embed?url=https://www.youtube.com/watch?v=${id}`);
+            const info = infoRes.ok ? await infoRes.json() : {};
+            return {
+              id,
+              title: (info.title || 'TOP GLOBAL').toUpperCase(),
+              thumb: `https://img.youtube.com/vi/${id}/mqdefault.jpg`
+            };
+          } catch {
+            return { id, title: 'TOP GLOBAL', thumb: `https://img.youtube.com/vi/${id}/mqdefault.jpg` };
+          }
+        }));
+
+        renderInspiration(top);
+      } catch {
+        clearTimeout(trendingTimeout);
+      }
+    }
+
+    // Listener original de envío (conexión directa a la segunda página)
+    document.getElementById('start-form').addEventListener('submit', (event) => {
+      event.preventDefault();
+      const url = document.getElementById('youtube-url').value;
+      const videoId = extractVideoId(url);
+
+      if (!videoId) {
+        alert('Pega una URL de YouTube válida.');
+        return;
+      }
+
+      goToPlayer(videoId);
+    });
+
+    loadTopGlobalInspiration();
+  </script>
+</body>
+</html>
