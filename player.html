@@ -289,6 +289,8 @@
     let timerInterval;
     let floatingWindowRef;
     let isHydratingAutoMix = false;
+    let seedVideoId = null;
+    let cachedAutoMixIds = [];
     const MIN_PLAYLIST_TARGET = 220;
     const EXTEND_CHUNK_SIZE = 40;
 
@@ -365,6 +367,25 @@
         return { title: `YouTube ${id}`, artist: 'YouTube', genre: 'AutoMix' };
       } finally {
         clearTimeout(timeout);
+      }
+    }
+
+
+    async function fetchRelatedIdsFromSeed(seedId) {
+      if (!seedId) return [];
+      try {
+        const res = await fetch(`https://r.jina.ai/http://www.youtube.com/watch?v=${seedId}`);
+        const text = await res.text();
+        const ids = [];
+        const re = /watch\?v=([\w-]{11})/g;
+        let m;
+        while ((m = re.exec(text)) !== null && ids.length < 25) {
+          const id = m[1];
+          if (id !== seedId && !ids.includes(id)) ids.push(id);
+        }
+        return ids;
+      } catch {
+        return [];
       }
     }
 
@@ -486,21 +507,53 @@
       if (!ids.length) {
         if (retry < 8) {
           setTimeout(() => hydrateFromAutoMix(retry + 1), 500);
-        } else {
-          isHydratingAutoMix = false;
+          return;
         }
-        return;
       }
 
       isHydratingAutoMix = true;
       try {
-        const enriched = await Promise.all(ids.slice(0, 20).map(async (id) => {
+        let sourceIds = ids.length ? ids : cachedAutoMixIds;
+        if (!sourceIds.length && seedVideoId) {
+          sourceIds = await fetchRelatedIdsFromSeed(seedVideoId);
+        }
+        if (!sourceIds.length) return;
+
+        const enriched = await Promise.all(sourceIds.slice(0, 20).map(async (id) => {
           const meta = await fetchTrackMeta(id);
           return { id, title: meta.title, artist: meta.artist, genre: meta.genre, thumb: `https://img.youtube.com/vi/${id}/mqdefault.jpg` };
         }));
 
-        playlist = enriched;
-        currentIndex = Math.max(0, player.getPlaylistIndex?.() ?? 0);
+        const dedup = [];
+        const seen = new Set();
+        for (const track of enriched) {
+          if (!seen.has(track.id)) {
+            dedup.push(track);
+            seen.add(track.id);
+          }
+        }
+
+        if (seedVideoId && !seen.has(seedVideoId)) {
+          const seedMeta = await fetchTrackMeta(seedVideoId, 1800);
+          dedup.unshift({
+            id: seedVideoId,
+            title: seedMeta.title,
+            artist: seedMeta.artist,
+            genre: seedMeta.genre,
+            thumb: `https://img.youtube.com/vi/${seedVideoId}/mqdefault.jpg`
+          });
+        } else if (seedVideoId) {
+          const seedIndex = dedup.findIndex((t) => t.id === seedVideoId);
+          if (seedIndex > 0) {
+            const [seedTrack] = dedup.splice(seedIndex, 1);
+            dedup.unshift(seedTrack);
+          }
+        }
+
+        playlist = dedup;
+        const currentVideoId = normalizeVideoId(player.getVideoData?.().video_id || '');
+        const mappedIndex = currentVideoId ? playlist.findIndex((t) => t.id === currentVideoId) : -1;
+        currentIndex = mappedIndex >= 0 ? mappedIndex : 0;
         autoExtendPlaylist();
         renderCarousel();
         updateUI();
@@ -533,6 +586,7 @@
         return;
       }
 
+      seedVideoId = seedId;
       const meta = await fetchTrackMeta(seedId, 2400);
       const seedTrack = {
         id: seedId,
@@ -548,8 +602,17 @@
       updateUI();
 
       isHydratingAutoMix = true;
+      cachedAutoMixIds = [];
       player.loadPlaylist({ list: `RD${seedId}`, index: 0, startSeconds: 0, suggestedQuality: 'large' });
-      setTimeout(() => { hydrateFromAutoMix(0); }, 700);
+      setTimeout(() => {
+        cachedAutoMixIds = (player.getPlaylist?.() || []).filter((id) => id !== seedId);
+      }, 550);
+      setTimeout(() => {
+        player.loadVideoById(seedId);
+        currentIndex = 0;
+        updateUI();
+      }, 900);
+      setTimeout(() => { hydrateFromAutoMix(0); }, 1200);
     }
 
     function onPlayerReady(event) {
