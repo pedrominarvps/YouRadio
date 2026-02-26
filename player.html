@@ -291,8 +291,9 @@
     let isHydratingAutoMix = false;
     let seedVideoId = null;
     let cachedAutoMixIds = [];
+    let isExpandingUnique = false;
     const MIN_PLAYLIST_TARGET = 220;
-    const RELATED_BATCH_LIMIT = 24;
+    const EXTEND_CHUNK_SIZE = 40;
 
     function normalizeVideoId(rawId) {
       if (!rawId) return null;
@@ -301,90 +302,107 @@
     }
 
 
-    function mergeUniqueTracks(baseTracks, incomingTracks) {
-      const seen = new Set(baseTracks.map((track) => track.id));
-      const merged = [...baseTracks];
-      for (const track of incomingTracks) {
-        if (track && track.id && !seen.has(track.id)) {
-          merged.push(track);
-          seen.add(track.id);
-        }
-      }
-      return merged;
-    }
-
-    async function fetchRelatedTracksFromIds(sourceIds, maxItems = Number.POSITIVE_INFINITY) {
-      const uniqueIds = [];
-      const used = new Set();
-
-      for (const id of sourceIds) {
-        if (!id || used.has(id)) continue;
-        used.add(id);
-        uniqueIds.push(id);
-        if (uniqueIds.length >= maxItems) break;
-      }
-
-      return Promise.all(uniqueIds.map(async (id) => {
-        const meta = await fetchTrackMeta(id);
-        return {
+    function dedupePlaylist(preferredSeedId = seedVideoId) {
+      const unique = [];
+      const seen = new Set();
+      for (const track of playlist) {
+        const id = normalizeVideoId(track?.id || '');
+        if (!id || seen.has(id)) continue;
+        seen.add(id);
+        unique.push({
           id,
-          title: meta.title,
-          artist: meta.artist,
-          genre: meta.genre,
-          thumb: `https://img.youtube.com/vi/${id}/mqdefault.jpg`
-        };
-      }));
-    }
-
-    async function buildRelatedPlaylist(seedId, minTarget = MIN_PLAYLIST_TARGET) {
-      const queue = [seedId];
-      const visited = new Set([seedId]);
-      const discovered = [];
-
-      while (queue.length && discovered.length < minTarget * 2) {
-        const currentSeed = queue.shift();
-        const relatedIds = await fetchRelatedIdsFromSeed(currentSeed);
-
-        for (const relatedId of relatedIds) {
-          if (!relatedId || relatedId === seedId || visited.has(relatedId)) continue;
-          visited.add(relatedId);
-          discovered.push(relatedId);
-          queue.push(relatedId);
-          if (discovered.length >= minTarget * 2) break;
+          title: track.title || `YouTube ${id}`,
+          artist: track.artist || 'YouTube',
+          genre: track.genre || 'AutoMix',
+          thumb: track.thumb || `https://img.youtube.com/vi/${id}/mqdefault.jpg`
+        });
+      }
+      if (preferredSeedId) {
+        const seedIdx = unique.findIndex((t) => t.id === preferredSeedId);
+        if (seedIdx > 0) {
+          const [seedTrack] = unique.splice(seedIdx, 1);
+          unique.unshift(seedTrack);
         }
       }
-
-      return discovered.slice(0, minTarget - 1);
+      playlist = unique;
+      if (currentIndex >= playlist.length) currentIndex = Math.max(0, playlist.length - 1);
     }
 
-    async function maybeExtendNearEnd() {
-      if (isHydratingAutoMix || !seedVideoId) return;
-      if (playlist.length - currentIndex > 14) return;
+    async function autoExtendPlaylist(minTarget = MIN_PLAYLIST_TARGET, force = false) {
+      if (isExpandingUnique || (isHydratingAutoMix && !force)) return;
+      const seedId = seedVideoId || playlist[0]?.id;
+      if (!seedId) return;
 
-      isHydratingAutoMix = true;
+      dedupePlaylist(seedId);
+      if (playlist.length >= minTarget) return;
+
+      isExpandingUnique = true;
       try {
-        const anchorIds = playlist.slice(Math.max(0, currentIndex - 2), currentIndex + 5).map((track) => track.id);
-        const nextIds = [];
+        const seen = new Set(playlist.map((t) => t.id));
+        const discovered = [];
+        const queue = [seedId, ...cachedAutoMixIds.filter((id) => !seen.has(id))];
+        const visited = new Set();
 
-        for (const anchorId of anchorIds) {
-          const related = await fetchRelatedIdsFromSeed(anchorId);
+        while (queue.length && seen.size < minTarget && visited.size < 120) {
+          const source = queue.shift();
+          if (!source || visited.has(source)) continue;
+          visited.add(source);
+          const related = await fetchRelatedIdsFromSeed(source);
           for (const id of related) {
-            if (!nextIds.includes(id)) nextIds.push(id);
-            if (nextIds.length >= RELATED_BATCH_LIMIT) break;
+            if (!id || seen.has(id)) continue;
+            seen.add(id);
+            discovered.push(id);
+            if (queue.length < 200) queue.push(id);
+            if (seen.size >= minTarget) break;
           }
-          if (nextIds.length >= RELATED_BATCH_LIMIT) break;
         }
 
-        const freshTracks = await fetchRelatedTracksFromIds(nextIds, RELATED_BATCH_LIMIT);
-        const merged = mergeUniqueTracks(playlist, freshTracks);
+        if (seen.size < minTarget) {
+          const seedTrack = playlist.find((t) => t.id === seedId) || {};
+          const q = `${seedTrack.title || ''} ${seedTrack.artist || ''}`.trim() || `${seedId} music`;
+          const searched = await fetchSeedSearchIds(q, minTarget * 2);
+          for (const id of searched) {
+            if (!id || seen.has(id) || id === seedId) continue;
+            seen.add(id);
+            discovered.push(id);
+            if (seen.size >= minTarget) break;
+          }
+        }
 
-        if (merged.length > playlist.length) {
-          playlist = merged;
+        if (discovered.length) {
+          const extra = discovered.map((id, i) => ({
+            id,
+            title: `Recomendación ${playlist.length + i + 1}`,
+            artist: 'YouTube',
+            genre: 'AutoMix',
+            thumb: `https://img.youtube.com/vi/${id}/mqdefault.jpg`
+          }));
+          playlist.push(...extra);
+          dedupePlaylist(seedId);
+          renderCarousel();
+          updateUI();
+
+          // hidrata metadatos solo para un bloque inicial para evitar espera larga
+          const hydrateIds = playlist.slice(1, 41).map((t) => t.id);
+          const metas = await Promise.all(hydrateIds.map((id) => fetchTrackMeta(id, 1700)));
+          hydrateIds.forEach((id, idx) => {
+            const pos = playlist.findIndex((t) => t.id === id);
+            if (pos > -1) {
+              playlist[pos] = { ...playlist[pos], ...metas[idx] };
+            }
+          });
           renderCarousel();
           updateUI();
         }
       } finally {
-        isHydratingAutoMix = false;
+        isExpandingUnique = false;
+      }
+    }
+
+    function maybeExtendNearEnd() {
+      if (isHydratingAutoMix || isExpandingUnique) return;
+      if (playlist.length - currentIndex <= 25 || playlist.length < MIN_PLAYLIST_TARGET) {
+        autoExtendPlaylist(Math.max(MIN_PLAYLIST_TARGET, playlist.length + EXTEND_CHUNK_SIZE));
       }
     }
 
@@ -399,7 +417,7 @@
       return "Pop";
     }
 
-    async function fetchTrackMeta(id, timeoutMs = 2800) {
+    async function fetchTrackMeta(id, timeoutMs = 1800) {
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), timeoutMs);
       try {
@@ -415,28 +433,81 @@
       }
     }
 
-
     async function fetchRelatedIdsFromSeed(seedId) {
       if (!seedId) return [];
+      const ids = [];
+      const pushId = (value) => {
+        const id = normalizeVideoId(value || '');
+        if (id && id !== seedId && !ids.includes(id)) ids.push(id);
+      };
+
       try {
         const res = await fetch(`https://r.jina.ai/http://www.youtube.com/watch?v=${seedId}`);
         const text = await res.text();
-        const ids = [];
         const re = /watch\?v=([\w-]{11})/g;
         let m;
-        while ((m = re.exec(text)) !== null && ids.length < 25) {
-          const id = m[1];
-          if (id !== seedId && !ids.includes(id)) ids.push(id);
-        }
-        return ids;
-      } catch {
-        return [];
+        while ((m = re.exec(text)) !== null && ids.length < 40) pushId(m[1]);
+      } catch {}
+
+      if (ids.length < 20) {
+        try {
+          const res = await fetch(`https://inv.nadeko.net/api/v1/videos/${seedId}`);
+          const data = res.ok ? await res.json() : {};
+          const related = Array.isArray(data.recommendedVideos) ? data.recommendedVideos : [];
+          related.forEach((item) => pushId(item?.videoId || item?.video_id));
+        } catch {}
       }
+
+      return ids;
     }
 
+    async function fetchSeedSearchIds(query, limit = 240) {
+      if (!query) return [];
+      const ids = [];
+      const pushId = (value) => {
+        const id = normalizeVideoId(value || '');
+        if (id && !ids.includes(id)) ids.push(id);
+      };
+
+      let pageToken = '';
+      try {
+        for (let page = 0; page < 5 && ids.length < limit; page += 1) {
+          const tokenParam = pageToken ? `&pageToken=${encodeURIComponent(pageToken)}` : '';
+          const url = `https://yt.lemnoslife.com/noKey/search?part=snippet&type=video&maxResults=50&q=${encodeURIComponent(query)}${tokenParam}`;
+          const res = await fetch(url);
+          if (!res.ok) break;
+          const data = await res.json();
+          const items = Array.isArray(data.items) ? data.items : [];
+          items.forEach((item) => pushId(item?.id?.videoId || item?.id));
+          if (!data.nextPageToken) break;
+          pageToken = data.nextPageToken;
+        }
+      } catch {}
+
+      return ids.slice(0, limit);
+    }
+
+    async function collectAutoMixIds(seedId, target = 120) {
+      const seen = new Set([seedId]);
+      const ids = [];
+      for (let i = 0; i < 24 && ids.length < target; i += 1) {
+        const current = player.getPlaylist?.() || [];
+        current.forEach((id) => {
+          const normalized = normalizeVideoId(id || '');
+          if (normalized && !seen.has(normalized)) {
+            seen.add(normalized);
+            ids.push(normalized);
+          }
+        });
+        if (ids.length >= target) break;
+        await new Promise((resolve) => setTimeout(resolve, 350));
+      }
+      return ids;
+    }
 
     function updateUI() {
-      const track = playlist[currentIndex];
+      const track = playlist[currentIndex] || playlist[0];
+      if (!track) return;
       document.getElementById('current-title').innerText = track.title;
       document.getElementById('current-artist').innerText = track.artist;
       document.getElementById('genre-tag').innerText = track.genre;
@@ -470,13 +541,14 @@
     }
 
     function playTrack(index) {
+      if (!playlist[index]) return;
       currentIndex = index;
       player.loadVideoById(playlist[currentIndex].id);
       setTimeout(() => {
         if (player && typeof player.playVideo === 'function') player.playVideo();
       }, 120);
       updateUI();
-      void maybeExtendNearEnd();
+      maybeExtendNearEnd();
     }
 
     function togglePlay() {
@@ -549,47 +621,125 @@
     }
 
     async function hydrateFromAutoMix(retry = 0) {
-      if (!player || !seedVideoId) return;
+      if (!player || typeof player.getPlaylist !== 'function') return;
+      const ids = player.getPlaylist() || [];
 
-      if (retry > 8) return;
+      if (!ids.length && retry < 8) {
+        setTimeout(() => hydrateFromAutoMix(retry + 1), 500);
+        return;
+      }
 
       isHydratingAutoMix = true;
       try {
-        let sourceIds = (player.getPlaylist?.() || []).filter((id) => id && id !== seedVideoId);
-        if (!sourceIds.length) sourceIds = cachedAutoMixIds;
-        if (!sourceIds.length) sourceIds = await buildRelatedPlaylist(seedVideoId, MIN_PLAYLIST_TARGET);
-
-        const initialTracks = await fetchRelatedTracksFromIds(sourceIds);
-
-        const seedMeta = await fetchTrackMeta(seedVideoId, 1800);
-        const seedTrack = {
-          id: seedVideoId,
-          title: seedMeta.title,
-          artist: seedMeta.artist,
-          genre: seedMeta.genre,
-          thumb: `https://img.youtube.com/vi/${seedVideoId}/mqdefault.jpg`
-        };
-
-        playlist = mergeUniqueTracks([seedTrack], initialTracks);
-
-        let growthTarget = MIN_PLAYLIST_TARGET + 40;
-        while (playlist.length < MIN_PLAYLIST_TARGET && growthTarget <= 520) {
-          const extraIds = await buildRelatedPlaylist(seedVideoId, growthTarget);
-          const extraTracks = await fetchRelatedTracksFromIds(extraIds);
-          const merged = mergeUniqueTracks(playlist, extraTracks);
-          if (merged.length === playlist.length) break;
-          playlist = merged;
-          growthTarget += 100;
+        const seedId = seedVideoId;
+        let sourceIds = ids.map((id) => normalizeVideoId(id || '')).filter(Boolean);
+        if (!sourceIds.length) sourceIds = [...cachedAutoMixIds];
+        if (!sourceIds.length && seedId) sourceIds = await fetchRelatedIdsFromSeed(seedId);
+        if (!sourceIds.length && seedId) {
+          const seedTrack = playlist.find((t) => t.id === seedId) || {};
+          sourceIds = await fetchSeedSearchIds(`${seedTrack.title || ''} ${seedTrack.artist || ''}`.trim() || `${seedId} music`, MIN_PLAYLIST_TARGET * 2);
         }
 
-        const currentVideoId = normalizeVideoId(player.getVideoData?.().video_id || '');
-        const mappedIndex = currentVideoId ? playlist.findIndex((t) => t.id === currentVideoId) : -1;
-        currentIndex = mappedIndex >= 0 ? mappedIndex : 0;
+        const uniqueIds = [];
+        const seen = new Set();
+        if (seedId) {
+          seen.add(seedId);
+          uniqueIds.push(seedId);
+        }
+        sourceIds.forEach((id) => {
+          const normalized = normalizeVideoId(id || '');
+          if (normalized && !seen.has(normalized)) {
+            seen.add(normalized);
+            uniqueIds.push(normalized);
+          }
+        });
+
+        if (uniqueIds.length < MIN_PLAYLIST_TARGET && seedId) {
+          cachedAutoMixIds = uniqueIds.slice(1);
+          await autoExtendPlaylist(MIN_PLAYLIST_TARGET, true);
+          dedupePlaylist(seedId);
+          renderCarousel();
+          updateUI();
+          return;
+        }
+
+        // Render rápido con placeholders para evitar lista vacía
+        const quick = uniqueIds.slice(0, Math.max(MIN_PLAYLIST_TARGET, 240)).map((id, idx) => ({
+          id,
+          title: idx === 0 ? (playlist[0]?.title || `YouTube ${id}`) : `Recomendación ${idx + 1}`,
+          artist: idx === 0 ? (playlist[0]?.artist || 'YouTube') : 'YouTube',
+          genre: idx === 0 ? (playlist[0]?.genre || 'AutoMix') : 'AutoMix',
+          thumb: `https://img.youtube.com/vi/${id}/mqdefault.jpg`
+        }));
+        playlist = quick;
+        currentIndex = 0;
+        dedupePlaylist(seedId);
+        renderCarousel();
+        updateUI();
+
+        const hydrateIds = playlist.slice(1, 51).map((t) => t.id);
+        const metas = await Promise.all(hydrateIds.map((id) => fetchTrackMeta(id, 1700)));
+        hydrateIds.forEach((id, idx) => {
+          const pos = playlist.findIndex((t) => t.id === id);
+          if (pos > -1) playlist[pos] = { ...playlist[pos], ...metas[idx] };
+        });
         renderCarousel();
         updateUI();
       } finally {
         isHydratingAutoMix = false;
       }
+    }
+
+    async function startFromSeed(seedId, event) {
+      if (!seedId) {
+        renderCarousel();
+        updateUI();
+        if (event?.target) event.target.playVideo();
+        return;
+      }
+
+      seedVideoId = seedId;
+      const meta = await fetchTrackMeta(seedId, 1600);
+      const seedTrack = {
+        id: seedId,
+        title: meta.title,
+        artist: meta.artist,
+        genre: meta.genre,
+        thumb: `https://img.youtube.com/vi/${seedId}/mqdefault.jpg`
+      };
+
+      playlist = [seedTrack];
+      currentIndex = 0;
+      renderCarousel();
+      updateUI();
+
+      isHydratingAutoMix = true;
+      cachedAutoMixIds = [];
+      player.loadPlaylist({ list: `RD${seedId}`, index: 0, startSeconds: 0, suggestedQuality: 'large' });
+
+      // Recolecta rápido IDs de AutoMix + búsquedas relacionadas al seed.
+      const autoMixPromise = collectAutoMixIds(seedId, 120);
+      const seedQuery = `${seedTrack.title} ${seedTrack.artist}`.trim();
+      const relatedPromise = fetchRelatedIdsFromSeed(seedId);
+      const searchPromise = fetchSeedSearchIds(seedQuery || `${seedId} music`, 220);
+
+      const [autoIds, relatedIds, searchIds] = await Promise.all([autoMixPromise, relatedPromise, searchPromise]);
+      const merged = [];
+      const seen = new Set([seedId]);
+      for (const id of [...autoIds, ...relatedIds, ...searchIds]) {
+        const normalized = normalizeVideoId(id || '');
+        if (normalized && !seen.has(normalized)) {
+          seen.add(normalized);
+          merged.push(normalized);
+        }
+      }
+      cachedAutoMixIds = merged;
+
+      // Mantener contexto RD<seed>: no usar loadVideoById aquí para no romper
+      // la playlist interna que YouTube crea con recomendaciones.
+      currentIndex = 0;
+      updateUI();
+      hydrateFromAutoMix(0);
     }
 
     function openDownload(kind) {
@@ -608,49 +758,13 @@
       else floatingWindowRef = window.open(popupUrl, 'youradio-floating', features);
     }
 
-    async function startFromSeed(seedId, event) {
-      if (!seedId) {
-        renderCarousel();
-        updateUI();
-        if (event?.target) event.target.playVideo();
-        return;
-      }
-
-      seedVideoId = seedId;
-      const meta = await fetchTrackMeta(seedId, 2400);
-      const seedTrack = {
-        id: seedId,
-        title: meta.title,
-        artist: meta.artist,
-        genre: meta.genre,
-        thumb: `https://img.youtube.com/vi/${seedId}/mqdefault.jpg`
-      };
-
-      playlist = [seedTrack];
-      currentIndex = 0;
-      renderCarousel();
-      updateUI();
-
-      isHydratingAutoMix = true;
-      cachedAutoMixIds = [];
-      player.loadPlaylist({ list: `RD${seedId}`, index: 0, startSeconds: 0, suggestedQuality: 'large' });
-      setTimeout(() => {
-        cachedAutoMixIds = (player.getPlaylist?.() || []).filter((id) => id !== seedId);
-      }, 550);
-      setTimeout(() => {
-        player.loadVideoById(seedId);
-        currentIndex = 0;
-        updateUI();
-      }, 900);
-      setTimeout(() => { hydrateFromAutoMix(0); }, 1200);
-    }
-
     function onPlayerReady(event) {
       startProgressTimer();
 
       const queryId = normalizeVideoId(new URLSearchParams(window.location.search).get('v'));
       if (queryId) startFromSeed(queryId, event);
       else {
+        autoExtendPlaylist();
         renderCarousel();
         updateUI();
         event.target.playVideo();
@@ -666,12 +780,11 @@
         }, 260);
       }
       if (event.data === YT.PlayerState.PLAYING || event.data === YT.PlayerState.CUED) {
-        const idx = player.getPlaylistIndex?.();
-        if (Number.isInteger(idx) && idx >= 0 && idx < playlist.length) {
-          currentIndex = idx;
-          updateUI();
-          void maybeExtendNearEnd();
-        }
+        const currentVideoId = normalizeVideoId(player.getVideoData?.().video_id || '');
+        const idx = currentVideoId ? playlist.findIndex((track) => track.id === currentVideoId) : -1;
+        if (idx >= 0 && idx !== currentIndex) currentIndex = idx;
+        updateUI();
+        maybeExtendNearEnd();
       }
       updatePlayPauseIcon();
     }
